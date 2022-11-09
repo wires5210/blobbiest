@@ -1,0 +1,6 @@
+{
+    // hide node_modules
+    "files.exclude": {
+        "**/node_modules": true
+    },
+}

@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "rootDir": "src",
+        "lib": ["esnext", "dom"],
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true
+    },
+    "exclude": ["gulpfile.js", "node_modules", "dist"]
+}
