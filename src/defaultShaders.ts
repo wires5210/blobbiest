@@ -32,5 +32,4 @@ void main(void)
 
     vColor = vec4(1, 1, 1, 1);
 }
-`;
-
+`

@@ -97,4 +97,7 @@ gulp.task('watch', () => {
 
 gulp.task('build', gulp.series('copyPublic', 'webpack'))
 
-gulp.task('dev', gulp.series('copyPublic', 'webpack-watch', gulp.parallel('serve', 'watch')))
+gulp.task(
+    'dev',
+    gulp.series('copyPublic', 'webpack-watch', gulp.parallel('serve', 'watch'))
+)

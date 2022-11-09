@@ -326,7 +326,7 @@ window.onload = (): void => {
 
     let prevTouchX: number | undefined
     let prevTouchY: number | undefined
- 
+
     //@ts-expect-error ditto
     app.view.addEventListener('touchstart', (e: TouchEvent) => {
         e.preventDefault()
@@ -342,10 +342,13 @@ window.onload = (): void => {
         onPressUp()
     })
 
-    const text = new Text('click/tap and drag to move\ntilt your phone to change gravity', {
-        fontSize: 32,
-        align: 'left',
-    })
+    const text = new Text(
+        'click/tap and drag to move\ntilt your phone to change gravity',
+        {
+            fontSize: 32,
+            align: 'left',
+        }
+    )
 
     container.addChild(text)
 
