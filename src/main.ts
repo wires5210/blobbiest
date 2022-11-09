@@ -1,5 +1,6 @@
 import { Composite, Heax, Particle } from 'heax'
 import {
+    Text,
     Application,
     Mesh,
     Shader,
@@ -340,6 +341,13 @@ window.onload = (): void => {
         prevTouchY = undefined
         onPressUp()
     })
+
+    const text = new Text('click/tap and drag to move\ntilt your phone to change gravity', {
+        fontSize: 32,
+        align: 'left',
+    })
+
+    container.addChild(text)
 
     //@ts-expect-error ditto
     app.view.addEventListener('touchmove', (e: TouchEvent) => {
