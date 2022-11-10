@@ -241,14 +241,33 @@ window.onload = (): void => {
     let accelerometerX = 0
     let accelerometerY = 0
 
-    window.addEventListener('devicemotion', (e: DeviceMotionEvent) => {
+    const onDeviceMotion = (e: DeviceMotionEvent): void => {
         console.log('motion !!!!!!!')
         const accel = e.accelerationIncludingGravity
         if (accel == null) return
         if (accel.x) accelerometerX = accel.x
         if (accel.y) accelerometerY = accel.y
         console.log(accelerometerX, accelerometerY)
-    })
+    }
+
+    const iosGetAccelerometer = (): void => {
+        console.log('hmm?')
+        // @ts-expect-error ios stuff mmmm
+        window.DeviceMotionEvent.requestPermission().then(response => {
+            if (response === 'granted') {
+                console.log('lets goooooooooo')
+            }
+        })
+
+        canvas.removeEventListener('touchend', iosGetAccelerometer)
+        window.addEventListener('devicemotion', onDeviceMotion)
+    }
+
+    if ('requestPermission' in window.DeviceMotionEvent) {
+        canvas.addEventListener('touchend', iosGetAccelerometer)
+    } else {
+        window.addEventListener('devicemotion', onDeviceMotion)
+    }
 
     app.ticker.add(() => {
         let gravityMultiplier = 1
@@ -329,21 +348,19 @@ window.onload = (): void => {
 
     //@ts-expect-error ditto
     app.view.addEventListener('touchstart', (e: TouchEvent) => {
-        e.preventDefault()
         const touch = e.touches[0]
         prevTouchX = touch.clientX
         prevTouchY = touch.clientY
         onPressDown()
     })
     app.view.addEventListener('touchend', e => {
-        e.preventDefault()
         prevTouchX = undefined
         prevTouchY = undefined
         onPressUp()
     })
 
     const text = new Text(
-        'click/tap and drag to move\ntilt your phone to change gravity',
+        'press and drag to move\ntilt your phone to change gravity',
         {
             fontSize: 32,
             align: 'left',
