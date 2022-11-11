@@ -12,18 +12,20 @@ import { pixiJsFragmentShader, pixiJsVertexShader } from './defaultShaders'
 
 let particleCount = 0
 const outerRing: number[] = []
-const innerRing: number[] = []
 let centerParticle: Particle | undefined
+let anchorParticle: Particle | undefined
 
-const segmentCount = 15
+const segmentCount = 20
 let centerTargetX = 0
 let centerTargetY = 0
 let dragging = false
-const baseGravity = 0.1
+const baseGravity = 0.2
 let gravityAngle = Math.PI * 1.5
 
 const offsetX = 64
 const offsetY = 64
+const centerOffsetX = -20
+const centerOffsetY = 10
 const scaleX = 1
 const scaleY = 1
 const imgWidth = 266
@@ -44,7 +46,6 @@ function oval(
     segments: number
 ): void {
     const step = (Math.PI * 2) / segments
-    const innerRingDistance = 32
     for (let i = 0; i < Math.PI * 2 - 0.005; i += step) {
         const pointX = Math.cos(i) * width + x
         let pointY = Math.sin(i) * height + y
@@ -54,24 +55,14 @@ function oval(
         }
         addPoint(composite, pointX, pointY)
         outerRing.push(particleCount - 1)
-        // addPoint(composite, (pointX - x) * innerRingScale + x, (pointY - y) * innerRingScale + y)
-        const distance = Math.sqrt(
-            Math.pow(pointX - x, 2) + Math.pow(pointY - y, 2)
-        )
-        const innerX =
-            ((pointX - x) * (distance - innerRingDistance)) / distance + x
-        const innerY =
-            ((pointY - y) * (distance - innerRingDistance)) / distance + y
-        addPoint(composite, innerX, innerY)
-        innerRing.push(particleCount - 1)
     }
 }
 
 function heaxSetup(canvas: HTMLCanvasElement): Heax {
     const heax = new Heax(canvas)
-    heax.friction = 0.975
-    heax.bounce = 1
-    heax.groundFriction = 0.99
+    heax.friction = 0.985
+    heax.bounce = 0
+    heax.groundFriction = 1
 
     const cat = new Composite(heax)
     const x = imgWidth / 2 + 5
@@ -83,85 +74,54 @@ function heaxSetup(canvas: HTMLCanvasElement): Heax {
 
     for (let i = 0; i < outerRing.length; i++) {
         const outer = outerRing[i]
-        const inner = innerRing[i]
-        cat.addConstraint(outer, inner, {
-            stiffness: 0.5,
+        const next1 = outerRing[(i + 1) % outerRing.length]
+        const next2 = outerRing[(i + 2) % outerRing.length]
+        cat.addConstraint(outer, next1, {
+            stiffness: 0.7,
         })
-    }
-
-    for (let i = 0; i < outerRing.length; i++) {
-        const outer = outerRing[i]
-        const inner = innerRing[(i + 1) % outerRing.length]
-        cat.addConstraint(outer, inner, {
-            stiffness: 0.25,
-        })
-    }
-
-    for (let i = 0; i < innerRing.length; i++) {
-        const inner = innerRing[i]
-        const outer = outerRing[(i + 1) % outerRing.length]
-        cat.addConstraint(inner, outer, {
-            stiffness: 0.25,
-        })
-    }
-
-    for (let i = 0; i < outerRing.length; i++) {
-        const prev = outerRing[i]
-        const next = outerRing[(i + 1) % outerRing.length]
-        cat.addConstraint(prev, next, {
-            stiffness: 3,
-        })
-    }
-
-    for (let i = 0; i < innerRing.length; i++) {
-        const prev = innerRing[i]
-        const next = innerRing[(i + 1) % innerRing.length]
-        cat.addConstraint(prev, next, {
-            stiffness: 1,
-        })
-    }
-
-    for (let i = 0; i < innerRing.length; i++) {
-        const prev = innerRing[i]
-        const next = innerRing[(i + 2) % innerRing.length]
-        cat.addConstraint(prev, next, {
-            stiffness: 1,
+        cat.addConstraint(outer, next2, {
+            stiffness: 0.7,
         })
     }
 
     const center = cat.addParticle(
-        x + offsetX - 10,
-        y + offsetY,
-        x + offsetX - 10,
-        y + offsetY,
+        x + offsetX + centerOffsetX,
+        y + offsetY + centerOffsetY,
+        x + offsetX + centerOffsetX,
+        y + offsetY + centerOffsetY,
         {
             radius: 5,
         }
     )
 
     centerParticle = center
+    anchorParticle = cat.addParticle(
+        centerParticle.position.x + 1, // + 1 to avoid NaNs
+        centerParticle.position.y,
+        centerParticle.oldPosition.x,
+        centerParticle.oldPosition.y,
+        {
+            radius: 3,
+        }
+    )
 
-    for (let i = 0; i < innerRing.length; i++) {
-        const inner = innerRing[i]
-        cat.addConstraint(center, inner, {
-            stiffness: 0.015,
+    cat.addConstraint(center, anchorParticle, {
+        stiffness: 0.1,
+    })
+
+    for (let i = 0; i < outerRing.length; i++) {
+        const outer = outerRing[i]
+        const constraint = cat.addConstraint(outer, center, {
+            stiffness: 0.09,
+            width: 1,
         })
+        if (constraint.distance >= 120) {
+            constraint.stiffness = 0.09 - (constraint.distance - 120) * 0.00075
+            constraint.width = 3
+        }
     }
 
     heax.composites.push(cat)
-
-    //@ts-expect-error mmmmmmmm
-    window.heax = heax
-    //@ts-expect-error mmmmmmmm
-    window.u = (): void => {
-        let r = ''
-        for (const particle of cat.particles) {
-            r += `addPoint(cat, ${particle.position.x}, ${particle.position.y})\n`
-        }
-        console.log(r)
-        heax.update()
-    }
-
     return heax
 }
 
@@ -171,6 +131,7 @@ function meshSetup(cat: Composite): Mesh<Shader> {
     const uniforms = {
         uSampler: kittyTexture,
     }
+
     const shader = Shader.from(
         pixiJsVertexShader,
         pixiJsFragmentShader,
@@ -181,7 +142,7 @@ function meshSetup(cat: Composite): Mesh<Shader> {
     const uvs: number[] = []
     if (!centerParticle) throw new Error('wtf')
     vertices.push(centerParticle.position.x, centerParticle.position.y)
-    uvs.push(0.5, 0.5)
+    uvs.push(0.5 + centerOffsetX / imgWidth, 0.5 + centerOffsetY / imgHeight)
 
     outerRing.forEach(i => {
         const particle = cat.particles[i]
@@ -235,19 +196,16 @@ window.onload = (): void => {
 
     const container = new Container()
     app.stage.addChild(container)
-
     container.addChild(catMesh)
 
     let accelerometerX = 0
     let accelerometerY = 0
 
     const onDeviceMotion = (e: DeviceMotionEvent): void => {
-        console.log('motion !!!!!!!')
         const accel = e.accelerationIncludingGravity
         if (accel == null) return
         if (accel.x) accelerometerX = accel.x
         if (accel.y) accelerometerY = accel.y
-        console.log(accelerometerX, accelerometerY)
     }
 
     const iosGetAccelerometer = (): void => {
@@ -256,11 +214,10 @@ window.onload = (): void => {
         window.DeviceMotionEvent.requestPermission().then(response => {
             if (response === 'granted') {
                 console.log('lets goooooooooo')
+                window.addEventListener('devicemotion', onDeviceMotion)
             }
+            canvas.removeEventListener('touchend', iosGetAccelerometer)
         })
-
-        canvas.removeEventListener('touchend', iosGetAccelerometer)
-        window.addEventListener('devicemotion', onDeviceMotion)
     }
 
     if ('requestPermission' in window.DeviceMotionEvent) {
@@ -270,20 +227,23 @@ window.onload = (): void => {
     }
 
     app.ticker.add(() => {
+        if (!anchorParticle) throw new Error('wtf')
+
         let gravityMultiplier = 1
         if (dragging) {
             gravityMultiplier = 0
-            if (!centerParticle) throw new Error('wtf')
-            // move central particle toward centerTarget
-            // limit movement to a certain distance to avoid moving too fast
-            const dx = centerTargetX - centerParticle.position.x
-            const dy = centerTargetY - centerParticle.position.y
+            // move the anchorParticle, which in turn
+            // causes centerParticle to move
+            // if centerParticle is moved directly,
+            // the face won't look as jelly-like ]:
+            const dx = centerTargetX - anchorParticle.position.x
+            const dy = centerTargetY - anchorParticle.position.y
             const dist = Math.sqrt(dx * dx + dy * dy)
             if (dist > 0) {
                 const maxDist = 7
                 const scale = Math.min(dist, maxDist) / dist
-                centerParticle.position.x += dx * scale
-                centerParticle.position.y += dy * scale
+                anchorParticle.position.x += dx * scale
+                anchorParticle.position.y += dy * scale
             }
         }
 
@@ -301,8 +261,7 @@ window.onload = (): void => {
 
         heax.width = app.view.width
         heax.height = app.view.height
-        if (!centerParticle) throw new Error('wtf')
-        newVertices.push(centerParticle.position.x, centerParticle.position.y)
+        newVertices.push(anchorParticle.position.x, anchorParticle.position.y)
 
         outerRing.forEach(i => {
             const particle = cat.particles[i]
@@ -314,7 +273,6 @@ window.onload = (): void => {
         vertexBuffer.update()
     })
 
-    if (!app.view.addEventListener) throw new Error('what !!!!!!!!')
     const onPressDown = (): void => {
         console.log('down :]')
         centerTargetX = centerParticle?.position.x
@@ -335,6 +293,7 @@ window.onload = (): void => {
         }
     }
 
+    if (!app.view.addEventListener) throw new Error('what !!!!!!!!')
     app.view.addEventListener('mousedown', onPressDown)
     app.view.addEventListener('mouseup', onPressUp)
 
@@ -353,21 +312,11 @@ window.onload = (): void => {
         prevTouchY = touch.clientY
         onPressDown()
     })
-    app.view.addEventListener('touchend', e => {
+    app.view.addEventListener('touchend', () => {
         prevTouchX = undefined
         prevTouchY = undefined
         onPressUp()
     })
-
-    const text = new Text(
-        'press and drag to move\ntilt your phone to change gravity',
-        {
-            fontSize: 32,
-            align: 'left',
-        }
-    )
-
-    container.addChild(text)
 
     //@ts-expect-error ditto
     app.view.addEventListener('touchmove', (e: TouchEvent) => {
@@ -380,4 +329,14 @@ window.onload = (): void => {
         prevTouchY = touch.clientY
         onPressMove(dx, dy)
     })
+
+    const text = new Text(
+        'press and drag to move\ntilt your phone to change gravity',
+        {
+            fontSize: 32,
+            align: 'left',
+        }
+    )
+
+    container.addChild(text)
 }
